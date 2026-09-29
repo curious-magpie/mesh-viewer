@@ -71,8 +71,8 @@ void InspectWindow::ui(Viewer &viewer)
   ImGui::Separator();
 
   // What the cut shows of each mesh. These belong here rather than next to
-  // colour and alpha: the cap is what makes a cut read as solid, and the
-  // elements are what make it read as a mesh.
+  // colour and alpha: the elements are what make a cut read as a mesh, and the
+  // cap what makes it read as a solid.
   for (size_t slot = 0; slot < scene.order().size(); ++slot)
   {
     Layer &l = scene.at_slot(slot);
@@ -81,6 +81,21 @@ void InspectWindow::ui(Viewer &viewer)
     ImGui::Text("%s", l.name.c_str());
     ImGui::SameLine();
 
+    ImGui::BeginDisabled(!l.has_volume());
+    ImGui::Checkbox("elements", &l.show_elements);
+    ImGui::EndDisabled();
+
+    // One switch for the labels, which is all a two-sided labelling needs:
+    // the same slab, split into its groups by colour.
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!l.wants_elements() || l.labels.empty());
+    ImGui::Checkbox("by label", &l.color_by_label);
+    ImGui::EndDisabled();
+    if (l.labels.empty() && l.has_volume() &&
+        ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))
+      ImGui::SetTooltip("this mesh's source gives no labels");
+
+    ImGui::SameLine();
     ImGui::BeginDisabled(!l.closed());
     ImGui::Checkbox("cap", &l.cap);
     ImGui::SameLine();
@@ -89,38 +104,32 @@ void InspectWindow::ui(Viewer &viewer)
     ImGui::EndDisabled();
     ImGui::EndDisabled();
 
-    ImGui::SameLine();
-    ImGui::BeginDisabled(!l.has_volume());
-    ImGui::Checkbox("elements", &l.show_elements);
-    ImGui::EndDisabled();
-
-    if (!l.closed())
-      ImGui::TextDisabled("   not closed, so no cap");
-    else if (l.has_volume() && l.show_elements)
+    if (l.wants_elements())
       ImGui::TextDisabled(
           "   %zu of %zu tets cut", l.slice.tets(), l.tet_count());
 
-    // The groups the source labelled the tets with, each with a colour and a
-    // checkbox of its own: the way to look at the inside of a labelling on its
-    // own is to hide the outside. The counts are of the tets in the cut.
-    if (l.has_volume() && l.show_elements)
+    // Which colour is which, with how many of the cut tets each has. The
+    // swatches still recolour, for a label colour that is lost against the
+    // mesh behind it.
+    if (l.wants_elements() && l.colors_by_label())
+    {
+      ImGui::TextDisabled("  ");
       for (size_t g = 0; g < l.labels.size(); ++g)
       {
         LabelStyle &style = l.labels[g];
         ImGui::PushID(int(g));
-        ImGui::TextDisabled("  ");
         ImGui::SameLine();
         ImGui::ColorEdit3("##label colour",
                           &style.color.x,
                           ImGuiColorEditFlags_NoInputs |
                               ImGuiColorEditFlags_NoLabel);
         ImGui::SameLine();
-        ImGui::Checkbox(style.name.c_str(), &style.visible);
-        ImGui::SameLine();
-        ImGui::TextDisabled("%zu",
+        ImGui::TextDisabled("%s %zu",
+                            style.name.c_str(),
                             g < l.slice.groups() ? l.slice.tets(g) : size_t(0));
         ImGui::PopID();
       }
+    }
 
     ImGui::PopID();
   }

@@ -28,13 +28,13 @@
 namespace mesh_viewer
 {
 
-// How one group of a layer's labelled tets is shown in the cut: the viewer's,
-// set from the Inspect window. The host says only which tet is in which group.
+// The colour one group of a layer's labelled tets is drawn in, when the layer
+// is coloured by label: the viewer's, and recolourable from the Inspect window.
+// The host says only which tet is in which group.
 struct LabelStyle
 {
   std::string name; // the source's name for the label, or "label <n>"
   glm::vec3 color{1.0f};
-  bool visible = true;
 };
 
 struct Layer
@@ -51,7 +51,15 @@ struct Layer
   float alpha = 1.0f;
   bool cap = false;      // fill in the cutting plane's cross-section
   bool solid_cap = true; // ... opaquely, even when the shell is translucent
-  bool show_elements = false; // draw the tets the plane passes through, whole
+
+  // Draw the tets the plane passes through, whole. On from the start: a cut
+  // through a volume is for looking at its elements, and the plane itself is
+  // what turns it on and off.
+  bool show_elements = true;
+
+  // ... each in its label's colour rather than the layer's. Off from the
+  // start, and a no-op on a layer whose source gives no labels.
+  bool color_by_label = false;
   glm::vec3 color{0.75f};
 
   // --- the mesh being shown, as its source last described it ---
@@ -68,8 +76,7 @@ struct Layer
   //
   // `tet_labels` is empty unless the source gave one per tet. `labels` has
   // one entry per label value up to the largest seen, and keeps its colours
-  // and checkboxes when the labels change underneath it. Empty when there are
-  // no labels: the elements are then one group, in the layer's own colour.
+  // when the labels change underneath it. Empty when there are no labels.
   Span<uint8_t> tet_labels;
   std::vector<LabelStyle> labels;
 
@@ -125,6 +132,10 @@ struct Layer
   bool wants_elements() const
   {
     return show_elements && has_volume();
+  }
+  bool colors_by_label() const
+  {
+    return color_by_label && !labels.empty();
   }
 
   // Brings `slice` up to date with the plane. Cheap to call every frame: the

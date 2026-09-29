@@ -290,8 +290,8 @@ void Renderer::fill_cross_section(const Layer &l,
 // elements rather than as a flat painted face.
 //
 // One draw per group -- per label, if the source labels its tets -- each in its
-// own colour, and none for a group the panel has hidden. Filled first and then
-// outlined, both from the same index buffer. The fill is pushed away from the
+// label's colour when the layer is coloured by label, and in the layer's own
+// otherwise. Filled first and then outlined, both from the same index buffer. The fill is pushed away from the
 // eye so the lines sit on top of it instead of fighting it.
 //
 // The slab has the shell's alpha. Opaque, it writes depth and needs no order.
@@ -316,16 +316,15 @@ void Renderer::draw_elements(const Layer &l,
   s.offset_factor = 1.0f;
   s.offset_units = 1.0f;
 
-  // Without labels the slab is one group, slightly brighter than the shell it
-  // came out of, so it reads as something standing in front of the cut rather
-  // than part of it.
-  const auto color_of = [&l](size_t group)
+  // Not by label, the slab is slightly brighter than the shell it came out of,
+  // so it reads as something standing in front of the cut rather than part of
+  // it.
+  const bool by_label = l.colors_by_label();
+  const auto color_of = [&l, by_label](size_t group)
   {
-    return l.labels.empty() ? glm::min(l.color * 1.25f, glm::vec3(1.0f))
-                            : l.labels[group].color;
+    return by_label ? l.labels[group].color
+                    : glm::min(l.color * 1.25f, glm::vec3(1.0f));
   };
-  const auto shown = [&l](size_t group)
-  { return l.labels.empty() || l.labels[group].visible; };
 
   surface_.use();
   surface_.set("uView", view);
@@ -341,7 +340,7 @@ void Renderer::draw_elements(const Layer &l,
     s.cull_face = culls[pass];
     s.apply();
     for (size_t g = 0; g < l.slice.groups(); ++g)
-      if (shown(g) && l.slice.tets(g))
+      if (l.slice.tets(g))
       {
         surface_.set("uColor", glm::vec4(color_of(g), l.alpha));
         l.slice.draw(g);
@@ -361,7 +360,7 @@ void Renderer::draw_elements(const Layer &l,
   cap_.set("uUnlit", 1.0f);
   cap_.set("uColor", glm::vec4(0.05f, 0.05f, 0.06f, l.alpha));
   for (size_t g = 0; g < l.slice.groups(); ++g)
-    if (shown(g) && l.slice.tets(g))
+    if (l.slice.tets(g))
       l.slice.draw(g);
 }
 

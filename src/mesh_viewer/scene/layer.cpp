@@ -75,7 +75,6 @@ bool Layer::refresh(const MeshView &mesh, const glm::dvec3 &scene_origin)
     // found, a surface its own triangles.
     const Span<uint32_t> indices = mesh.triangles;
     tri_count = indices.size() / 3;
-    cap = closed(); // capping defaults on wherever it is meaningful
     gpu.upload(staging_, indices);
 
     // And so is which vertices those triangles use, which is what the bounds

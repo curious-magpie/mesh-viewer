@@ -12,10 +12,10 @@ What it draws:
 - every mesh as a layer, with colour, alpha and a composite order you choose (nested
   translucent shells have no correct automatic order)
 - a cutting plane with a gizmo: slide it, ctrl-drag to rotate it
-- a stencil-filled cap on closed meshes
-- the tets the plane passes through, drawn whole, with the layer's transparency. If the
-  host labels its tets (inside/outside, materials, …), each label gets its own colour and
-  can be hidden
+- the tets the plane passes through, drawn whole and with the layer's transparency, on
+  by default. If the host labels its tets (inside/outside, materials, …), one **by label**
+  checkbox colours them by label
+- a stencil-filled cap on closed meshes, off by default
 - three surface modes: shaded, shaded with edges, x-ray
 - overlay channels: named lists of vertex indices a host wants marked, as points, lines or
   triangles
