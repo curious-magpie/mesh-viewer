@@ -100,6 +100,28 @@ void InspectWindow::ui(Viewer &viewer)
       ImGui::TextDisabled(
           "   %zu of %zu tets cut", l.slice.tets(), l.tet_count());
 
+    // The groups the source labelled the tets with, each with a colour and a
+    // checkbox of its own: the way to look at the inside of a labelling on its
+    // own is to hide the outside. The counts are of the tets in the cut.
+    if (l.has_volume() && l.show_elements)
+      for (size_t g = 0; g < l.labels.size(); ++g)
+      {
+        LabelStyle &style = l.labels[g];
+        ImGui::PushID(int(g));
+        ImGui::TextDisabled("  ");
+        ImGui::SameLine();
+        ImGui::ColorEdit3("##label colour",
+                          &style.color.x,
+                          ImGuiColorEditFlags_NoInputs |
+                              ImGuiColorEditFlags_NoLabel);
+        ImGui::SameLine();
+        ImGui::Checkbox(style.name.c_str(), &style.visible);
+        ImGui::SameLine();
+        ImGui::TextDisabled("%zu",
+                            g < l.slice.groups() ? l.slice.tets(g) : size_t(0));
+        ImGui::PopID();
+      }
+
     ImGui::PopID();
   }
 

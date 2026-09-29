@@ -7,6 +7,26 @@
 namespace mesh_viewer
 {
 
+namespace
+{
+
+// The groups' default colours: a cool one for label 0 and warm, saturated ones
+// after it. Label 0 is usually the bulk -- the outside, the background
+// material -- and the rest what is being looked for. Recolour any of them from
+// the Inspect window.
+const glm::vec3 kLabelPalette[] = {
+    {0.62f, 0.70f, 0.82f},
+    {0.98f, 0.60f, 0.25f},
+    {0.45f, 0.85f, 0.45f},
+    {0.95f, 0.35f, 0.50f},
+    {0.95f, 0.85f, 0.30f},
+    {0.65f, 0.50f, 0.95f},
+};
+constexpr size_t kLabelPaletteSize =
+    sizeof(kLabelPalette) / sizeof(kLabelPalette[0]);
+
+} // namespace
+
 glm::dvec3 mesh_center(const MeshView &mesh)
 {
   // Over the drawn triangles rather than every corner of every tet: interior
@@ -27,6 +47,7 @@ bool Layer::refresh(const MeshView &mesh, const glm::dvec3 &scene_origin)
   mesh_closed = mesh.closed;
   mesh_oriented = mesh.oriented;
   keep_alive = mesh.keep_alive;
+  refresh_labels(mesh);
 
   const uint64_t revision = mesh.revision;
   const bool first = !uploaded;
@@ -106,8 +127,48 @@ void Layer::update_slice(const CutPlane &plane)
   // plane is four numbers, where shifting the mesh would be a second copy of
   // every vertex.
   const glm::dvec3 n(plane.n);
-  slice.update(
-      positions, tets, glm::dvec4(n, double(plane.w) - glm::dot(n, origin)));
+  slice.update(positions,
+               tets,
+               tet_labels,
+               labels.size(),
+               glm::dvec4(n, double(plane.w) - glm::dot(n, origin)));
+}
+
+void Layer::refresh_labels(const MeshView &mesh)
+{
+  // Only a full set means anything: a label per tet, or none.
+  const bool usable =
+      !mesh.tets.empty() && mesh.tet_labels.size() == mesh.tets.size() / 4;
+  const Span<uint8_t> now = usable ? mesh.tet_labels : Span<uint8_t>();
+
+  // The same labels as last frame -- the same array, the same revision -- are
+  // nothing to do. Anything else rebuilds the slice, which sorts by them.
+  const bool same =
+      labels_seen && mesh.labels_revision == seen_labels_revision &&
+      now.data() == tet_labels.data() && now.size() == tet_labels.size();
+  tet_labels = now;
+  if (!same)
+  {
+    labels_seen = true;
+    seen_labels_revision = mesh.labels_revision;
+    slice.clear();
+
+    // One group per value up to the largest present. Existing groups keep
+    // what the panel did to them; new ones get the next colour.
+    size_t count = 0;
+    for (uint8_t label : now)
+      count = std::max(count, size_t(label) + 1);
+    const size_t before = labels.size();
+    labels.resize(count);
+    for (size_t g = before; g < count; ++g)
+      labels[g].color = kLabelPalette[g % kLabelPaletteSize];
+  }
+
+  // Names are cheap, and a source may name its labels later than it has them.
+  for (size_t g = 0; g < labels.size(); ++g)
+    labels[g].name = g < mesh.label_names.size()
+                         ? std::string(mesh.label_names[g])
+                         : "label " + std::to_string(g);
 }
 
 } // namespace mesh_viewer

@@ -289,32 +289,66 @@ void Renderer::fill_cross_section(const Layer &l,
 // one element thick standing in the cut, so the mesh's elements are visible as
 // elements rather than as a flat painted face.
 //
-// Filled first and then outlined, both from the same index buffer. The fill is
-// pushed away from the eye so the lines sit on top of it instead of fighting
-// it, and culling stays off because the slice does not rewind the tet faces.
+// One draw per group -- per label, if the source labels its tets -- each in its
+// own colour, and none for a group the panel has hidden. Filled first and then
+// outlined, both from the same index buffer. The fill is pushed away from the
+// eye so the lines sit on top of it instead of fighting it.
+//
+// The slab has the shell's alpha. Opaque, it writes depth and needs no order.
+// Translucent, it writes none -- so it hides neither itself nor what is behind
+// it -- and draws the far faces of every tet before the near ones, as the shell
+// does, which is right for each tet on its own. Where cut tets overlap each
+// other on screen their order is the buffer's, and at that point this is
+// ordinary unsorted blending.
 void Renderer::draw_elements(const Layer &l,
                              const CutPlane &plane,
                              const glm::mat4 &view)
 {
+  const bool opaque = l.is_opaque();
+
   GlState s;
   s.depth_test = true;
-  s.depth_write = true;
+  s.depth_write = opaque;
+  s.blend = !opaque;
   s.cull = false;
   s.clip_plane = false; // the whole tet is wanted, both sides of the plane
   s.polygon_offset = true;
   s.offset_factor = 1.0f;
   s.offset_units = 1.0f;
-  s.apply();
 
-  // Slightly brighter than the shell it came out of, so the slab reads as
-  // something standing in front of the cut rather than part of it.
+  // Without labels the slab is one group, slightly brighter than the shell it
+  // came out of, so it reads as something standing in front of the cut rather
+  // than part of it.
+  const auto color_of = [&l](size_t group)
+  {
+    return l.labels.empty() ? glm::min(l.color * 1.25f, glm::vec3(1.0f))
+                            : l.labels[group].color;
+  };
+  const auto shown = [&l](size_t group)
+  { return l.labels.empty() || l.labels[group].visible; };
+
   surface_.use();
   surface_.set("uView", view);
-  surface_.set("uColor",
-               glm::vec4(glm::min(l.color * 1.25f, glm::vec3(1.0f)), 1.0f));
   l.slice.bind();
-  l.slice.draw();
 
+  // Far faces, then near: two passes when translucent, one with culling off
+  // when not.
+  const GLenum culls[] = {GL_FRONT, GL_BACK};
+  const size_t passes = opaque ? 1 : 2;
+  for (size_t pass = 0; pass < passes; ++pass)
+  {
+    s.cull = !opaque;
+    s.cull_face = culls[pass];
+    s.apply();
+    for (size_t g = 0; g < l.slice.groups(); ++g)
+      if (shown(g) && l.slice.tets(g))
+      {
+        surface_.set("uColor", glm::vec4(color_of(g), l.alpha));
+        l.slice.draw(g);
+      }
+  }
+
+  s.cull = false;
   s.polygon_offset = false;
   s.depth_func = GL_LEQUAL;
   s.polygon_mode = GL_LINE;
@@ -325,8 +359,10 @@ void Renderer::draw_elements(const Layer &l,
   // rather than branching, and NaN * 0.0 is NaN.
   cap_.set("uNormalView", glm::mat3(view) * plane.n);
   cap_.set("uUnlit", 1.0f);
-  cap_.set("uColor", glm::vec4(0.05f, 0.05f, 0.06f, 1.0f));
-  l.slice.draw();
+  cap_.set("uColor", glm::vec4(0.05f, 0.05f, 0.06f, l.alpha));
+  for (size_t g = 0; g < l.slice.groups(); ++g)
+    if (shown(g) && l.slice.tets(g))
+      l.slice.draw(g);
 }
 
 void Renderer::draw_layer(const Layer &l,
@@ -358,8 +394,7 @@ void Renderer::draw_layer(const Layer &l,
   if (capping)
     fill_cross_section(l, plane, view, owns_channel);
 
-  // The elements stand in front of the cap, and are opaque whatever the shell
-  // is, so they go after it.
+  // The elements stand in front of the cap, so they go after it.
   if (l.wants_elements() && side == PlaneSide::Crossing)
     draw_elements(l, plane, view);
 }

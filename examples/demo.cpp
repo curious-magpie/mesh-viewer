@@ -5,14 +5,15 @@
 // Everything a real host does is here, at toy scale:
 //
 //   the meshes     a tet box and a sphere surface, generated, owned by the host
-//   MeshSource     a view of them, which the viewer reads every frame
+//   MeshSource     a view of them, which the viewer reads every frame -- with
+//                  the box's tets labelled inside or outside the sphere
 //   OverlaySource  one channel: the box vertices above a height
 //   a Panel        the "Demo" window -- a clock that moves the sphere (update,
 //                  animating), a slider whose change is deferred (defer), and
 //                  a key of its own (on_key: space starts and stops the clock)
 //
 // The viewer's own Inspect and View windows come for free; turn the cutting
-// plane on (P) and tick "elements" to see the box's tets.
+// plane on (P) and tick "elements" to see the box's tets, coloured by label.
 #include <algorithm>
 #include <array>
 #include <cmath>
@@ -42,6 +43,8 @@ struct Mesh
   std::vector<glm::dvec3> positions;
   std::vector<uint32_t> triangles; // what is drawn
   std::vector<uint32_t> tets;      // empty for a surface
+  std::vector<uint8_t> labels;     // one per tet, or none
+  uint64_t labels_revision = 1;    // bumped whenever `labels` changes
 };
 
 double signed_volume(const std::vector<glm::dvec3> &p,
@@ -199,6 +202,11 @@ public:
     v.positions = m.positions;
     v.triangles = m.triangles;
     v.tets = m.tets;
+    v.tet_labels = m.labels;
+    v.labels_revision = m.labels_revision;
+    static const std::string_view kNames[] = {"outside the sphere",
+                                              "inside the sphere"};
+    v.label_names = {kNames, 2};
     // Both meshes are closed and consistently wound, which is the default.
     return v;
   }
@@ -322,6 +330,17 @@ int main()
   DemoMeshes meshes;
   meshes.meshes.push_back(make_box(1, 8));
   meshes.meshes.push_back(make_sphere(2, glm::dvec3(0.5), 0.35, 3));
+
+  // Which of the box's tets the sphere (at rest) contains, by centroid: what a
+  // host's own classification would hand over.
+  Mesh &box = meshes.meshes[0];
+  for (size_t t = 0; t < box.tets.size(); t += 4)
+  {
+    glm::dvec3 c(0.0);
+    for (size_t k = 0; k < 4; ++k)
+      c += box.positions[box.tets[t + k]] * 0.25;
+    box.labels.push_back(uint8_t(glm::length(c - glm::dvec3(0.5)) < 0.35));
+  }
   DemoMarks marks;
   DemoPanel panel(meshes, marks);
 

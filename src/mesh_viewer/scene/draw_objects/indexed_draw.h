@@ -146,6 +146,16 @@ public:
   {
     glDrawElements(mode, index_count_, GL_UNSIGNED_INT, nullptr);
   }
+  // Only `count` indices, starting at the `first`'s: a run of the buffer, for
+  // an owner that keeps several things in one.
+  void draw(GLenum mode, GLsizei first, GLsizei count) const
+  {
+    glDrawElements(
+        mode,
+        count,
+        GL_UNSIGNED_INT,
+        reinterpret_cast<const void *>(size_t(first) * sizeof(uint32_t)));
+  }
 
   // Requires a current GL context; does not delete the borrowed buffer.
   void release()

@@ -28,6 +28,15 @@
 namespace mesh_viewer
 {
 
+// How one group of a layer's labelled tets is shown in the cut: the viewer's,
+// set from the Inspect window. The host says only which tet is in which group.
+struct LabelStyle
+{
+  std::string name; // the source's name for the label, or "label <n>"
+  glm::vec3 color{1.0f};
+  bool visible = true;
+};
+
 struct Layer
 {
   // A layer counts as opaque just short of 1.0, so sliding a slider to the very
@@ -55,12 +64,23 @@ struct Layer
   bool mesh_closed = true, mesh_oriented = true;
   std::shared_ptr<const void> keep_alive;
 
+  // --- the tets' labels, and how each group is shown ---
+  //
+  // `tet_labels` is empty unless the source gave one per tet. `labels` has
+  // one entry per label value up to the largest seen, and keeps its colours
+  // and checkboxes when the labels change underneath it. Empty when there are
+  // no labels: the elements are then one group, in the layer's own colour.
+  Span<uint8_t> tet_labels;
+  std::vector<LabelStyle> labels;
+
   // --- the projection, and what it was made from ---
   glm::vec3 bbmin{0.0f}, bbmax{0.0f}; // recentred scene space
   size_t tri_count = 0; // what is drawn: a volume's hull, or the surface itself
-  glm::dvec3 origin{0.0};         // file space minus this is scene space
-  bool uploaded = false;          // false until the first upload
-  uint64_t uploaded_revision = 0; // the mesh revision last uploaded
+  glm::dvec3 origin{0.0};            // file space minus this is scene space
+  bool uploaded = false;             // false until the first upload
+  uint64_t uploaded_revision = 0;    // the mesh revision last uploaded
+  bool labels_seen = false;          // false until labels were first counted
+  uint64_t seen_labels_revision = 0; // the labels revision last counted
 
   GpuMesh gpu;
   ElementSlice slice;
@@ -113,6 +133,10 @@ struct Layer
   void update_slice(const CutPlane &plane);
 
 private:
+  // Takes the source's labels, recounting the groups and marking the slice
+  // stale when they have changed.
+  void refresh_labels(const MeshView &mesh);
+
   std::vector<glm::vec3> staging_;       // the last projection uploaded
   std::vector<uint32_t> drawn_vertices_; // what the drawn triangles use
 };

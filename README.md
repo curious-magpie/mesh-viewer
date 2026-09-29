@@ -13,7 +13,9 @@ What it draws:
   translucent shells have no correct automatic order)
 - a cutting plane with a gizmo: slide it, ctrl-drag to rotate it
 - a stencil-filled cap on closed meshes
-- the tets the plane passes through, drawn whole
+- the tets the plane passes through, drawn whole, with the layer's transparency. If the
+  host labels its tets (inside/outside, materials, …), each label gets its own colour and
+  can be hidden
 - three surface modes: shaded, shaded with edges, x-ray
 - overlay channels: named lists of vertex indices a host wants marked, as points, lines or
   triangles
@@ -49,7 +51,10 @@ struct MeshView {
   uint64_t revision;              // change it whenever the positions change
   Span<glm::dvec3> positions;
   Span<uint32_t> triangles;       // what is drawn: a volume's hull, or the surface
-  Span<uint32_t> tets;            // 4 per tet; empty for a surface
+  Span<uint32_t> tets;            // 4 per tet, positive order; empty for a surface
+  Span<uint8_t> tet_labels;       // optional: a group per tet, for the cut's colours
+  uint64_t labels_revision;       // change it whenever the labels change
+  Span<std::string_view> label_names;  // optional: "inside", "outside", ...
   bool closed, oriented;          // gate the cap and backface culling
   std::shared_ptr<const void> keep_alive;
 };
@@ -57,7 +62,8 @@ struct MeshView {
 
 Nothing is pushed and nothing is notified. The viewer compares each revision with the one it
 uploaded, so moving a mesh means writing its positions and bumping its revision. The
-connectivity is uploaded once, the first time a mesh is seen. The spans must stay valid until
+connectivity is uploaded once, the first time a mesh is seen. Labels have their own
+revision, because a classification can change them without moving a vertex. The spans must stay valid until
 the next frame's sync. `keep_alive` is held by the layer if you want the viewer to share
 ownership.
 

@@ -54,8 +54,25 @@ struct MeshView
   Span<uint32_t> triangles;
 
   // Four indices per tet, for the elements the cutting plane passes through.
-  // Empty for a surface.
+  // Empty for a surface. In positive order -- the fourth corner on the side
+  // the first three wind counter-clockwise around -- so that a face's winding
+  // says which way is out: a translucent layer's elements blend back faces
+  // before front ones, and would blend in the wrong order otherwise.
   Span<uint32_t> tets;
+
+  // Optional: one small integer per tet saying which group it is in -- inside
+  // or outside a target, a material, a partition. The elements in the cut are
+  // coloured by group, and each group can be hidden, from the Inspect window.
+  // Ignored unless there is exactly one per tet.
+  Span<uint8_t> tet_labels;
+
+  // Must change whenever `tet_labels` does. Separate from `revision` because
+  // labels can change without a vertex moving, and a vertex without a label.
+  uint64_t labels_revision = 0;
+
+  // Optional: what each label means, indexed by label, shown in place of
+  // "label 0", "label 1", ... A label past the end keeps its number.
+  Span<std::string_view> label_names;
 
   // `closed` gates the cutting plane's cap: the stencil parity trick only
   // means anything on a watertight surface. `oriented` gates backface
