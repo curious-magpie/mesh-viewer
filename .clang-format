@@ -1,0 +1,24 @@
+BasedOnStyle: LLVM
+IndentWidth: 2
+ColumnLimit: 80
+PointerAlignment: Right
+BreakBeforeBraces: Allman
+
+AllowShortIfStatementsOnASingleLine: false
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+
+BinPackParameters: false
+BinPackArguments: false
+
+SortIncludes: false
+
+# Comments are hand-wrapped, and several are ASCII banners or aligned tables.
+# Reflowing them turns those into nonsense, so leave comments alone.
+ReflowComments: false
+
+# AlignAfterOpenBracket: AlwaysBreak
+# AlwaysBreakAfterReturnType: All
+# PenaltyBreakBeforeFirstCallParameter: 1
+# PenaltyBreakParameter: 1

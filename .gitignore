@@ -1,0 +1,11 @@
+# build output
+build*/
+compile_commands.json
+
+# editor / tooling
+.cache/
+.vscode/
+*.swp
+
+# written by Dear ImGui next to the executable at runtime
+imgui.ini
