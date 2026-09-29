@@ -60,7 +60,7 @@ void DebugOverlay::sync(const OverlaySource &src, const Scene &scene)
     {
       item.name = std::string(c.name);
       item.color = kPalette[i % kPaletteSize];
-      item.enabled = true;
+      item.enabled = false;
       item.in_front = false;
     }
 

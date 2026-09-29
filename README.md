@@ -69,7 +69,7 @@ ownership.
 
 **2. Optionally, mark things on them.** An `OverlaySource` hands over named channels of
 indices into one mesh's vertices, plus one revision for the whole set. The Inspect window
-lists them with a colour, a checkbox and "in front". Appearance is the viewer's; a channel
+lists them with a colour, a checkbox (off until you tick it) and "in front". Appearance is the viewer's; a channel
 says only what was found.
 
 **3. Add your windows** (`src/mesh_viewer/panel.h`):

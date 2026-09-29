@@ -40,7 +40,10 @@ public:
 
     // --- the viewer's, not the producer's ---
     glm::vec3 color{1.0f};
-    bool enabled = true;
+
+    // Off until ticked. A host may publish channels on every run, and what it
+    // found is there to be looked at on request, not drawn over every result.
+    bool enabled = false;
 
     // Draw this channel on top of the whole scene rather than letting what is
     // in front of it hide it.
