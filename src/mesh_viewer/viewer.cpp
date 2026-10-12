@@ -1,6 +1,7 @@
 #include "mesh_viewer/viewer.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 
 #include "imgui.h"
@@ -240,13 +241,12 @@ void Viewer::step_snap()
 
 void Viewer::draw_axes()
 {
-  // In the bottom-right corner, where no built-in window opens. An ImGui
+  // In the bottom-right corner of the scene, clear of the windows. An ImGui
   // window of its own, without decoration, so a click on it is ImGui's and
   // does not also start a drag of the camera.
   constexpr float kSize = 112.0f, kLength = 38.0f, kTip = 9.0f;
-  const ImVec2 display = ImGui::GetIO().DisplaySize;
   ImGui::SetNextWindowPos(
-      ImVec2(display.x - kSize - 8.0f, display.y - kSize - 8.0f));
+      ImVec2(scene_rect_.x1 - kSize - 8.0f, scene_rect_.y1 - kSize - 8.0f));
   ImGui::SetNextWindowSize(ImVec2(kSize, kSize));
   const ImGuiWindowFlags flags =
       ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
@@ -375,6 +375,8 @@ float Viewer::draw_menu_bar()
     {
       for (Window &w : windows_)
         ImGui::MenuItem(w.title.c_str(), nullptr, &w.open);
+      ImGui::Separator();
+      ImGui::MenuItem("docked layout", nullptr, &view_.docked);
       ImGui::EndMenu();
     }
     height = ImGui::GetWindowSize().y;
@@ -388,11 +390,18 @@ void Viewer::draw_windows()
   // Placements are stated as if there were no menu bar, so that a host does
   // not have to know how tall it is.
   const float top = draw_menu_bar();
+  if (view_.docked)
+    draw_docked(top);
+  else
+    draw_floating(top);
+}
 
+void Viewer::draw_floating(float top)
+{
   // ImGui lays out in window units, not framebuffer pixels -- which differ on
   // a scaled display -- so the right edge is its DisplaySize, not the camera's
   // viewport.
-  const float width = ImGui::GetIO().DisplaySize.x;
+  const ImVec2 display = ImGui::GetIO().DisplaySize;
 
   for (Window &w : windows_)
   {
@@ -400,7 +409,7 @@ void Viewer::draw_windows()
       continue;
 
     const WindowPlacement &p = w.where;
-    const float x = p.x < 0.0f ? std::max(width + p.x, 12.0f) : p.x;
+    const float x = p.x < 0.0f ? std::max(display.x + p.x, 12.0f) : p.x;
     ImGui::SetNextWindowPos(ImVec2(x, p.y + top), ImGuiCond_FirstUseEver);
     if (p.width > 0.0f && p.height > 0.0f)
       ImGui::SetNextWindowSize(ImVec2(p.width, p.height),
@@ -411,6 +420,95 @@ void Viewer::draw_windows()
       w.panel->ui(*this);
     ImGui::End();
   }
+
+  // Floating windows sit over the scene, which keeps the whole window.
+  scene_rect_ = Rect{0.0f, 0.0f, display.x, display.y};
+}
+
+void Viewer::draw_docked(float top)
+{
+  const ImVec2 display = ImGui::GetIO().DisplaySize;
+  const float height = std::max(display.y - top, 1.0f);
+  float used[2] = {0.0f, 0.0f};
+
+  // Left for a window placed from the left edge, right for one anchored to the
+  // right; within a column, top to bottom by where it was placed.
+  for (int side = 0; side < 2; ++side)
+  {
+    std::vector<Window *> column;
+    for (Window &w : windows_)
+      if (w.open && (w.where.x < 0.0f) == (side == 1))
+        column.push_back(&w);
+    if (column.empty())
+      continue;
+    std::stable_sort(column.begin(),
+                     column.end(),
+                     [](const Window *a, const Window *b)
+                     { return a->where.y < b->where.y; });
+
+    // As wide as the widest placement asked, the first time; after that what
+    // the user dragged it to. Never so wide the scene has nowhere to go.
+    float &width = column_width_[side];
+    if (width <= 0.0f)
+      for (const Window *w : column)
+        width = std::max(width, std::max(w->where.width, 280.0f));
+    const float widest = std::max(display.x * 0.45f, 220.0f);
+    width = std::clamp(width, 220.0f, widest);
+
+    // Pinned to its edge and the full height; only the inner edge can be
+    // dragged, which the size constraint enforces by fixing the height.
+    ImGui::SetNextWindowPos(ImVec2(side == 0 ? 0.0f : display.x - width, top),
+                            ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Always);
+    ImGui::SetNextWindowSizeConstraints(ImVec2(220.0f, height),
+                                        ImVec2(widest, height));
+    const ImGuiWindowFlags flags =
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar |
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoSavedSettings |
+        ImGuiWindowFlags_NoBringToFrontOnFocus;
+    if (ImGui::Begin(
+            side == 0 ? "##left column" : "##right column", nullptr, flags))
+    {
+      // Each window is a section that folds, and closes from its header like
+      // a floating window from its title bar; the Windows menu brings it back.
+      for (Window *w : column)
+        if (ImGui::CollapsingHeader(
+                w->title.c_str(), &w->open, ImGuiTreeNodeFlags_DefaultOpen))
+        {
+          ImGui::PushID(w->title.c_str());
+          w->panel->ui(*this);
+          ImGui::PopID();
+          ImGui::Spacing();
+        }
+    }
+    // A drag of the inner edge resizes the window; that is the new width.
+    width = ImGui::GetWindowWidth();
+    used[side] = width;
+    ImGui::End();
+  }
+
+  scene_rect_ = Rect{used[0], top, display.x - used[1], display.y};
+}
+
+void Viewer::apply_viewport()
+{
+  int fw = 0, fh = 0;
+  glfwGetFramebufferSize(window_, &fw, &fh);
+  const ImVec2 display = ImGui::GetIO().DisplaySize;
+  const float sx = display.x > 0.0f ? float(fw) / display.x : 1.0f;
+  const float sy = display.y > 0.0f ? float(fh) / display.y : 1.0f;
+
+  // From window units to framebuffer pixels, and from a top-left origin to
+  // GL's bottom-left one.
+  const int x0 = int(std::lround(scene_rect_.x0 * sx));
+  const int y0 = int(std::lround(scene_rect_.y0 * sy));
+  const int x1 = std::max(int(std::lround(scene_rect_.x1 * sx)), x0 + 1);
+  const int y1 = std::max(int(std::lround(scene_rect_.y1 * sy)), y0 + 1);
+  scene_x_ = x0;
+  scene_y_ = y0;
+  cam_.vw = x1 - x0;
+  cam_.vh = y1 - y0;
+  glViewport(x0, fh - y1, cam_.vw, cam_.vh);
 }
 
 int Viewer::run()
@@ -453,6 +551,9 @@ int Viewer::run()
     sync();
     step_snap();
 
+    // The scene into the rectangle the windows left free; ImGui sets its own
+    // viewport, the whole window, when it draws on top.
+    apply_viewport();
     renderer_.draw(scene_, cam_, plane_, view_.background, view_.surface_mode);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 

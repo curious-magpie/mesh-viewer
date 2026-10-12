@@ -133,6 +133,10 @@ void Viewer::cursor_pixels(double &mx, double &my) const
     mx *= double(fw) / double(ww);
     my *= double(fh) / double(wh);
   }
+  // And from the scene's own corner, which the docked windows push in from
+  // the window's: the camera's pixels are its viewport's.
+  mx -= double(scene_x_);
+  my -= double(scene_y_);
 }
 
 void Viewer::on_cursor_pos(double mx, double my)
@@ -212,6 +216,8 @@ void Viewer::on_drop(int count, const char **paths)
 
 void Viewer::on_resize(int width, int height)
 {
+  // Until the next frame lays the windows out again; apply_viewport then
+  // takes the rectangle they leave.
   cam_.vw = width;
   cam_.vh = height;
   glViewport(0, 0, width, height);

@@ -45,6 +45,11 @@ struct ViewSettings
 {
   glm::vec3 background{0.13f, 0.14f, 0.16f};
   SurfaceMode surface_mode = SurfaceMode::Shaded;
+
+  // The windows as columns down the sides, the scene drawn only between them;
+  // or, off, floating over the scene wherever they were left. Toggled from the
+  // Windows menu.
+  bool docked = true;
 };
 
 class Viewer
@@ -170,6 +175,9 @@ private:
   // --- viewer.cpp ---
   float draw_menu_bar(); // returns its height
   void draw_windows();
+  void draw_floating(float top);
+  void draw_docked(float top);
+  void apply_viewport(); // the scene's rectangle, to GL and the camera
   void draw_axes(); // the X/Y/Z triad in the corner, which is also a picker
   void turn_to(const glm::quat &to); // starts a snap
   void step_snap();                  // moves one along, once a frame
@@ -220,6 +228,20 @@ private:
   };
   Gesture gesture_ = Gesture::None;
   double last_x_ = 0.0, last_y_ = 0.0;
+
+  // --- where the scene is drawn ---
+  //
+  // The rectangle the windows leave free, in ImGui's window units, as the last
+  // frame laid it out; and its top-left corner in framebuffer pixels, which the
+  // cursor is measured from so the camera sees coordinates in its own
+  // viewport. Docked, the two columns' widths, kept while the window runs.
+  struct Rect
+  {
+    float x0 = 0.0f, y0 = 0.0f, x1 = 0.0f, y1 = 0.0f;
+  };
+  Rect scene_rect_;
+  int scene_x_ = 0, scene_y_ = 0;
+  float column_width_[2] = {0.0f, 0.0f}; // left, right
 
   // A view turning to a new orientation, eased over kSnapSeconds rather than
   // jumping, so the eye can follow where it went.
