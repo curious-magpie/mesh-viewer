@@ -231,6 +231,20 @@ void ViewWindow::ui(Viewer &viewer)
   if (ImGui::SmallButton("reset camera"))
     viewer.frame_all();
 
+  // The axis views, as the triad in the corner and X/Y/Z give them.
+  ImGui::TextUnformatted("view from");
+  static const char *kViews[6] = {"+X", "-X", "+Y", "-Y", "+Z", "-Z"};
+  for (int i = 0; i < 6; ++i)
+  {
+    ImGui::SameLine();
+    if (ImGui::SmallButton(kViews[i]))
+      viewer.look_from(i / 2, (i % 2) != 0);
+  }
+  ImGui::SameLine();
+  if (ImGui::SmallButton("default"))
+    viewer.look_default();
+  ImGui::Checkbox("orthographic (O)", &viewer.camera().orthographic);
+
   // Coordinates on screen are scene-relative; showing the origin lets you
   // recover the file's own numbers by adding it back.
   const glm::dvec3 o = scene.origin();

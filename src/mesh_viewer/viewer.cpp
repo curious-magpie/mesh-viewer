@@ -196,6 +196,148 @@ void Viewer::frame_all()
   cam_.fit(b.center, b.radius);
 }
 
+void Viewer::look_from(int axis, bool negative)
+{
+  glm::quat to = Camera::looking_from(axis, negative);
+  // Already looking from there: the other side, so a second press turns the
+  // scene round.
+  if (glm::dot(cam_.dir(), to * glm::vec3(0, 0, 1)) > 0.999f)
+    to = Camera::looking_from(axis, !negative);
+  turn_to(to);
+}
+
+void Viewer::look_default()
+{
+  turn_to(Camera::default_rotation());
+}
+
+void Viewer::turn_to(const glm::quat &to)
+{
+  snap_.active = true;
+  snap_.from = cam_.rotation;
+  // The short way round: q and -q are the same orientation, and slerp between
+  // them the long way would spin the view through a full turn first.
+  snap_.to = glm::dot(snap_.from, to) < 0.0f ? -to : to;
+  snap_.start = glfwGetTime();
+}
+
+void Viewer::step_snap()
+{
+  if (!snap_.active)
+    return;
+  // A drag takes the camera back; the snap gives way rather than fight it.
+  if (gesture_ != Gesture::None)
+  {
+    snap_.active = false;
+    return;
+  }
+  const double t = std::min((glfwGetTime() - snap_.start) / kSnapSeconds, 1.0);
+  const float eased = float(t * t * (3.0 - 2.0 * t)); // smoothstep
+  cam_.turn_to(glm::slerp(snap_.from, snap_.to, eased));
+  if (t >= 1.0)
+    snap_.active = false;
+}
+
+void Viewer::draw_axes()
+{
+  // In the bottom-right corner, where no built-in window opens. An ImGui
+  // window of its own, without decoration, so a click on it is ImGui's and
+  // does not also start a drag of the camera.
+  constexpr float kSize = 112.0f, kLength = 38.0f, kTip = 9.0f;
+  const ImVec2 display = ImGui::GetIO().DisplaySize;
+  ImGui::SetNextWindowPos(
+      ImVec2(display.x - kSize - 8.0f, display.y - kSize - 8.0f));
+  ImGui::SetNextWindowSize(ImVec2(kSize, kSize));
+  const ImGuiWindowFlags flags =
+      ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoBackground |
+      ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+      ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNav |
+      ImGuiWindowFlags_NoBringToFrontOnFocus;
+  if (!ImGui::Begin("##axes", nullptr, flags))
+  {
+    ImGui::End();
+    return;
+  }
+
+  ImDrawList *draw = ImGui::GetWindowDrawList();
+  const ImVec2 corner = ImGui::GetWindowPos();
+  const ImVec2 centre(corner.x + kSize * 0.5f, corner.y + kSize * 0.5f);
+
+  // The six ends, each world axis seen through the camera: right is screen x,
+  // up is screen -y. Drawn far to near, so the ones toward the viewer are on
+  // top, which is also the order a click should prefer.
+  struct End
+  {
+    ImVec2 at;
+    float depth; // toward the viewer is positive
+    int axis;
+    bool negative;
+  };
+  End ends[6];
+  for (int i = 0; i < 6; ++i)
+  {
+    glm::vec3 e(0.0f);
+    e[i / 2] = (i % 2) ? -1.0f : 1.0f;
+    ends[i] = End{ImVec2(centre.x + glm::dot(e, cam_.right()) * kLength,
+                         centre.y - glm::dot(e, cam_.up()) * kLength),
+                  glm::dot(e, cam_.dir()),
+                  i / 2,
+                  (i % 2) != 0};
+  }
+  std::sort(std::begin(ends),
+            std::end(ends),
+            [](const End &a, const End &b) { return a.depth < b.depth; });
+
+  // X red, Y green, Z blue, as everywhere else.
+  static const ImU32 kColour[3] = {IM_COL32(232, 84, 84, 255),
+                                   IM_COL32(118, 204, 92, 255),
+                                   IM_COL32(88, 142, 240, 255)};
+  static const char *kName[3] = {"X", "Y", "Z"};
+
+  const ImVec2 mouse = ImGui::GetIO().MousePos;
+  const bool hovered = ImGui::IsWindowHovered();
+  const End *picked = nullptr;
+  for (const End &end : ends)
+  {
+    const float dx = mouse.x - end.at.x, dy = mouse.y - end.at.y;
+    if (hovered && dx * dx + dy * dy <= kTip * kTip)
+      picked = &end; // the last hit is the nearest
+  }
+
+  for (const End &end : ends)
+  {
+    const ImU32 colour = kColour[end.axis];
+    const bool lit = picked == &end;
+    if (!end.negative)
+    {
+      draw->AddLine(centre, end.at, colour, 2.0f);
+      draw->AddCircleFilled(end.at, lit ? kTip + 2.0f : kTip, colour);
+      const ImVec2 text = ImGui::CalcTextSize(kName[end.axis]);
+      draw->AddText(ImVec2(end.at.x - text.x * 0.5f, end.at.y - text.y * 0.5f),
+                    IM_COL32(20, 20, 24, 255),
+                    kName[end.axis]);
+    }
+    else
+    {
+      draw->AddCircleFilled(end.at, kTip - 2.0f, IM_COL32(30, 32, 36, 200));
+      draw->AddCircle(end.at, lit ? kTip : kTip - 2.0f, colour, 0, 1.5f);
+    }
+  }
+
+  if (picked)
+  {
+    ImGui::SetTooltip("view from %s%s\nkey %s, shift+%s from the - side;\n"
+                      "again to turn round",
+                      picked->negative ? "-" : "+",
+                      kName[picked->axis],
+                      kName[picked->axis],
+                      kName[picked->axis]);
+    if (ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+      look_from(picked->axis, picked->negative);
+  }
+  ImGui::End();
+}
+
 void Viewer::close()
 {
   if (window_)
@@ -214,7 +356,7 @@ void Viewer::run_deferred()
 
 bool Viewer::animating() const
 {
-  if (gesture_ != Gesture::None || plane_drag_.dragging())
+  if (gesture_ != Gesture::None || plane_drag_.dragging() || snap_.active)
     return true;
   for (const Window &w : windows_)
     if (w.panel->animating())
@@ -295,6 +437,7 @@ int Viewer::run()
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
     draw_windows();
+    draw_axes();
     ImGui::Render();
 
     // What the panels asked to have done to the meshes, now that they have
@@ -308,6 +451,7 @@ int Viewer::run()
       w.panel->update(*this);
 
     sync();
+    step_snap();
 
     renderer_.draw(scene_, cam_, plane_, view_.background, view_.surface_mode);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

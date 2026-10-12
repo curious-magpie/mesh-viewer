@@ -175,6 +175,19 @@ void Viewer::on_key(int key, int action, int mods)
   case GLFW_KEY_P:
     plane_.enabled = !plane_.enabled;
     return;
+  // The axis views: from the + side, or with shift the - side; twice turns
+  // round. R back to the opening view, O perspective on and off.
+  case GLFW_KEY_X:
+  case GLFW_KEY_Y:
+  case GLFW_KEY_Z:
+    look_from(key - GLFW_KEY_X, (mods & GLFW_MOD_SHIFT) != 0);
+    return;
+  case GLFW_KEY_R:
+    look_default();
+    return;
+  case GLFW_KEY_O:
+    cam_.orthographic = !cam_.orthographic;
+    return;
   default:
     break;
   }

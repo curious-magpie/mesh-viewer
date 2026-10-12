@@ -32,9 +32,14 @@ struct Camera
   float distance = 3.0f;
 
   // The camera's axes in the world: +X is screen right, +Y screen up, +Z from
-  // the target toward the eye. It starts a little above and to the side.
-  glm::quat rotation = glm::angleAxis(0.7f, glm::vec3(0, 1, 0)) *
-                       glm::angleAxis(-0.5f, glm::vec3(1, 0, 0));
+  // the target toward the eye. It starts at `default_rotation`.
+  glm::quat rotation = default_rotation();
+
+  // Parallel projection: no perspective, so a view along an axis is a true
+  // elevation and equal lengths look equal wherever they are -- what you want
+  // to judge a film's thickness side-on. It frames what perspective framed at
+  // the target, so switching does not jump.
+  bool orthographic = false;
   float fovy = glm::radians(45.0f);
   float znear = 0.01f, zfar = 100.0f;
   int vw = 1280, vh = 720;   // viewport, in pixels
@@ -67,7 +72,46 @@ struct Camera
   glm::mat4 proj() const
   {
     const float aspect = vh > 0 ? float(vw) / float(vh) : 1.0f;
-    return glm::perspective(fovy, aspect, znear, zfar);
+    if (!orthographic)
+      return glm::perspective(fovy, aspect, znear, zfar);
+    // The height perspective shows at the target, so zooming -- which changes
+    // `distance` -- zooms here too. Depth runs as far behind the eye as in
+    // front: with no perspective nothing needs clipping for being close.
+    const float h = distance * std::tan(fovy * 0.5f);
+    return glm::ortho(-h * aspect, h * aspect, -h, h, -zfar, zfar);
+  }
+
+  // --- orientations ---
+
+  // A little above and to the side: the view a scene opens in.
+  static glm::quat default_rotation()
+  {
+    return glm::angleAxis(0.7f, glm::vec3(0, 1, 0)) *
+           glm::angleAxis(-0.5f, glm::vec3(1, 0, 0));
+  }
+
+  // Looking at the scene from the + side of world axis `axis` (0, 1, 2 for X,
+  // Y, Z), or the - side. Screen up is world +Y, except looking down or up the
+  // Y axis, where it is -Z from above and +Z from below; screen right then
+  // follows, so every view is right-handed.
+  static glm::quat looking_from(int axis, bool negative)
+  {
+    glm::vec3 back(0.0f);
+    back[axis] = negative ? -1.0f : 1.0f;
+    const glm::vec3 up = axis != 1  ? glm::vec3(0, 1, 0)
+                         : negative ? glm::vec3(0, 0, 1)
+                                    : glm::vec3(0, 0, -1);
+    return glm::quat_cast(glm::mat3(glm::cross(up, back), up, back));
+  }
+
+  // Turns the camera to orientation `to` about the pivot, as a drag would: the
+  // pivot keeps its place on screen.
+  void turn_to(const glm::quat &to)
+  {
+    const glm::quat delta = to * glm::inverse(rotation);
+    // Renormalised every step, so a long session cannot drift into a scale.
+    rotation = glm::normalize(to);
+    target = pivot + delta * (target - pivot);
   }
 
   // --- mouse gestures, all in pixels of movement ---
@@ -85,16 +129,14 @@ struct Camera
     // near side of the scene down; a drag right turns about +Y and brings it
     // right.
     const glm::vec3 axis = rotation * glm::normalize(glm::vec3(dy, dx, 0.0f));
-    const glm::quat turn = glm::angleAxis(-angle, axis);
-    // Renormalised every step, so a long session cannot drift into a scale.
-    rotation = glm::normalize(turn * rotation);
-    target = pivot + turn * (target - pivot);
+    turn_to(glm::angleAxis(-angle, axis) * rotation);
   }
 
   void pan(float dx, float dy)
   {
     // Scaled so a pixel of mouse movement tracks a pixel of the scene: the
-    // visible height at the target is 2*distance*tan(fovy/2), spread over vh.
+    // visible height at the target is 2*distance*tan(fovy/2), spread over vh
+    // -- in either projection, since the orthographic one frames the same.
     const float per_pixel =
         distance * std::tan(fovy * 0.5f) * 2.0f / float(std::max(vh, 1));
     target += (-right() * dx + up() * dy) * per_pixel;

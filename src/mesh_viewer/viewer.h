@@ -117,6 +117,14 @@ public:
   // Frames the camera on everything in the scene, as it was last synced.
   void frame_all();
 
+  // Turns the view, over a fifth of a second, to look at the scene from the +
+  // side of world axis `axis` (0, 1, 2 for X, Y, Z) or the - side, about the
+  // scene's centre. Asked for the view it is already in, it turns to the other
+  // side instead, so asking twice looks from behind.
+  void look_from(int axis, bool negative);
+  // The same, back to the view the scene opened in.
+  void look_default();
+
   // Asks the frame loop to stop after this frame.
   void close();
 
@@ -162,6 +170,9 @@ private:
   // --- viewer.cpp ---
   float draw_menu_bar(); // returns its height
   void draw_windows();
+  void draw_axes(); // the X/Y/Z triad in the corner, which is also a picker
+  void turn_to(const glm::quat &to); // starts a snap
+  void step_snap();                  // moves one along, once a frame
   void run_deferred();
   bool animating() const;
 
@@ -209,6 +220,17 @@ private:
   };
   Gesture gesture_ = Gesture::None;
   double last_x_ = 0.0, last_y_ = 0.0;
+
+  // A view turning to a new orientation, eased over kSnapSeconds rather than
+  // jumping, so the eye can follow where it went.
+  static constexpr double kSnapSeconds = 0.2;
+  struct Snap
+  {
+    bool active = false;
+    glm::quat from{1, 0, 0, 0}, to{1, 0, 0, 0};
+    double start = 0.0;
+  };
+  Snap snap_;
 };
 
 } // namespace mesh_viewer
