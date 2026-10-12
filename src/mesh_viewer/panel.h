@@ -43,7 +43,9 @@ public:
     return false;
   }
 
-  // A GLFW key code and modifier bits. Return true to claim the key.
+  // A GLFW key code and modifier bits. Return true to claim the key. A letter
+  // key arrives as the letter the active layout prints on it -- GLFW_KEY_Q is
+  // the key labelled Q on AZERTY as on QWERTY -- not by its US position.
   virtual bool on_key(Viewer &viewer, int key, int mods)
   {
     (void)viewer;

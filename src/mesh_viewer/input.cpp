@@ -22,6 +22,27 @@ Viewer &viewer_of(GLFWwindow *w)
   return *static_cast<Viewer *>(glfwGetWindowUserPointer(w));
 }
 
+// The letter key the active layout puts where `key` is.
+//
+// GLFW names keys by where they sit on a US keyboard, not by what is printed
+// on them: on a Belgian AZERTY the key labelled A arrives as GLFW_KEY_Q. Every
+// shortcut here means a letter -- Q quit, X/Y/Z the axes -- so a letter key is
+// translated through the layout first, and a shortcut is the key with that
+// letter on it, whichever layout is active and however often it changes.
+// Keys that make no single letter in the layout keep GLFW's code.
+int layout_key(int key, int scancode)
+{
+  const char *name = glfwGetKeyName(key, scancode);
+  if (!name || !name[0] || name[1])
+    return key;
+  const char c = name[0];
+  if (c >= 'a' && c <= 'z')
+    return GLFW_KEY_A + (c - 'a');
+  if (c >= 'A' && c <= 'Z')
+    return GLFW_KEY_A + (c - 'A');
+  return key;
+}
+
 } // namespace
 
 void Viewer::install_callbacks()
@@ -58,7 +79,7 @@ void Viewer::install_callbacks()
       {
         ImGui_ImplGlfw_KeyCallback(w, key, scancode, action, mods);
         if (!ImGui::GetIO().WantCaptureKeyboard)
-          viewer_of(w).on_key(key, action, mods);
+          viewer_of(w).on_key(key, scancode, action, mods);
       });
 
   glfwSetDropCallback(window_,
@@ -160,10 +181,13 @@ void Viewer::on_scroll(double dy)
   cam_.dolly(float(dy));
 }
 
-void Viewer::on_key(int key, int action, int mods)
+void Viewer::on_key(int key, int scancode, int action, int mods)
 {
   if (action != GLFW_PRESS)
     return;
+
+  // By the letter on the key, not its US position -- for the panels too.
+  key = layout_key(key, scancode);
 
   switch (key)
   {

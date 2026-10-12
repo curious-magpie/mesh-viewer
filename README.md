@@ -46,7 +46,8 @@ side (again to turn round).
 
 Keys: P plane, W surface mode, F frame the scene, Q quit; X, Y, Z look from the + side of an
 axis (shift for the - side), R back to the opening view, O orthographic on and off, every
-snap easing over 0.2 s. Other keys go to the host's panels.
+snap easing over 0.2 s. Letters are the letter printed on the key in the active layout, so Q is
+Q on AZERTY too. Other keys go to the host's panels.
 
 ## Writing a host
 

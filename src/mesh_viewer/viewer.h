@@ -190,7 +190,7 @@ private:
   void on_mouse_button(int button, int action, int mods);
   void on_cursor_pos(double mx, double my);
   void on_scroll(double dy);
-  void on_key(int key, int action, int mods);
+  void on_key(int key, int scancode, int action, int mods);
   void on_drop(int count, const char **paths);
   void on_resize(int width, int height);
 
