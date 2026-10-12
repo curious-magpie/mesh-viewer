@@ -87,6 +87,14 @@ void Viewer::on_mouse_button(int button, int action, int mods)
   last_x_ = mx;
   last_y_ = my;
 
+  // Right turns the scene, middle drags it. Left drags it too, after the
+  // plane's handle has had its say -- or turns it with shift held, for a
+  // trackpad that has no right drag to speak of.
+  if (button == GLFW_MOUSE_BUTTON_RIGHT)
+  {
+    gesture_ = Gesture::Orbit;
+    return;
+  }
   if (button == GLFW_MOUSE_BUTTON_MIDDLE)
   {
     gesture_ = Gesture::Pan;
@@ -112,7 +120,7 @@ void Viewer::on_mouse_button(int button, int action, int mods)
       return;
   }
 
-  gesture_ = (mods & GLFW_MOD_SHIFT) ? Gesture::Pan : Gesture::Orbit;
+  gesture_ = (mods & GLFW_MOD_SHIFT) ? Gesture::Orbit : Gesture::Pan;
 }
 
 void Viewer::cursor_pixels(double &mx, double &my) const

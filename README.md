@@ -33,8 +33,9 @@ subproject, `add_subdirectory(path/to/mesh-viewer)` then link `mesh_viewer::mesh
 The link is public for glad, ImGui, GLFW, GL and glm, because a host's panels are ImGui code
 and its sources hand over glm vectors. The viewer is C++17.
 
-Mouse: drag to orbit, shift-drag or middle-drag to pan, wheel to zoom. With the cutting plane
-on, drag its handle to slide it and ctrl-drag to rotate it. Keys: P plane, W surface mode,
+Mouse: right-drag turns the scene, as a trackball about the screen's axes through the scene's
+centre (shift-left-drag too, for a trackpad); left- or middle-drag moves it; wheel zooms. With
+the cutting plane on, left-drag its handle to slide it and ctrl-left-drag to rotate it. Keys: P plane, W surface mode,
 F frame the scene, Esc quit. Other keys go to the host's panels.
 
 ## Writing a host

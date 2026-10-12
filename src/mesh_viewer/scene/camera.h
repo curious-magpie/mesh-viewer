@@ -1,9 +1,18 @@
-// Orbit camera: the eye sits on a sphere around a target point.
+// A trackball camera: the eye looks at a target point from `distance` away,
+// turned by a free rotation.
 //
-// Three numbers describe it -- `yaw` and `pitch` place the eye on the sphere,
-// `distance` is its radius -- and the three mouse gestures each move one of
-// them, with panning sliding the target instead. Header-only: it is pure math
-// over a handful of floats.
+// The rotation is a quaternion rather than a yaw and a pitch. A yaw/pitch
+// camera has poles: its pitch has to stop short of straight up or down, where
+// the view direction meets the world's up vector and lookAt degenerates, so a
+// drag that carries on past them just stops; and a sideways drag spins about
+// the world's vertical axis, which near a pole turns the view about a point in
+// the middle of the screen. Here a drag turns the scene about the screen's own
+// axes -- sideways about the screen's vertical, up and down about its
+// horizontal -- and any orientation can be reached and left in any direction.
+//
+// Rotation turns about `pivot`, the scene's centre, which `fit` sets and
+// panning leaves alone: pan the meshes into a corner and they still turn about
+// themselves. Header-only: it is pure math over a handful of numbers.
 #pragma once
 
 #include <algorithm>
@@ -11,43 +20,49 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 namespace mesh_viewer
 {
 
 struct Camera
 {
-  glm::vec3 target{0.0f}; // the point we orbit around and look at
+  glm::vec3 target{0.0f}; // the point at the centre of the view
+  glm::vec3 pivot{0.0f};  // the point rotation turns about: the scene's centre
   float distance = 3.0f;
-  float yaw = 0.7f;   // radians, around world +Y
-  float pitch = 0.5f; // radians, clamped short of straight up or down
+
+  // The camera's axes in the world: +X is screen right, +Y screen up, +Z from
+  // the target toward the eye. It starts a little above and to the side.
+  glm::quat rotation = glm::angleAxis(0.7f, glm::vec3(0, 1, 0)) *
+                       glm::angleAxis(-0.5f, glm::vec3(1, 0, 0));
   float fovy = glm::radians(45.0f);
   float znear = 0.01f, zfar = 100.0f;
   int vw = 1280, vh = 720;   // viewport, in pixels
   float scene_radius = 1.0f; // what fit() framed, for the depth range
 
-  // Unit vector from the target toward the eye.
+  // Unit vector from the target toward the eye, and the screen's right and up.
   glm::vec3 dir() const
   {
-    const float cp = std::cos(pitch);
-    return glm::vec3(cp * std::sin(yaw), std::sin(pitch), cp * std::cos(yaw));
+    return rotation * glm::vec3(0, 0, 1);
+  }
+  glm::vec3 right() const
+  {
+    return rotation * glm::vec3(1, 0, 0);
+  }
+  glm::vec3 up() const
+  {
+    return rotation * glm::vec3(0, 1, 0);
   }
   glm::vec3 eye() const
   {
     return target + dir() * distance;
   }
-  glm::vec3 right() const
-  {
-    return glm::normalize(glm::cross(-dir(), glm::vec3(0, 1, 0)));
-  }
-  glm::vec3 up() const
-  {
-    return glm::normalize(glm::cross(right(), -dir()));
-  }
 
+  // The camera's own up, not the world's: it is never parallel to the view
+  // direction, so this holds in every orientation.
   glm::mat4 view() const
   {
-    return glm::lookAt(eye(), target, glm::vec3(0, 1, 0));
+    return glm::lookAt(eye(), target, up());
   }
   glm::mat4 proj() const
   {
@@ -57,13 +72,23 @@ struct Camera
 
   // --- mouse gestures, all in pixels of movement ---
 
+  // Turns the scene the way the mouse moved: about the screen axis at right
+  // angles to the drag, through `pivot`, by 0.005 rad a pixel. The scene
+  // turning one way is the camera -- its orientation and its target -- turning
+  // the other way about the same axis.
   void orbit(float dx, float dy)
   {
-    // Just short of a right angle: at exactly straight up the world-up vector
-    // and the view direction become parallel and lookAt degenerates.
-    constexpr float kPitchLimit = 1.5533f;
-    yaw -= dx * 0.005f;
-    pitch = std::clamp(pitch + dy * 0.005f, -kPitchLimit, kPitchLimit);
+    const float angle = 0.005f * std::sqrt(dx * dx + dy * dy);
+    if (angle == 0.0f)
+      return;
+    // Screen y grows downward, so a drag down turns about +X and brings the
+    // near side of the scene down; a drag right turns about +Y and brings it
+    // right.
+    const glm::vec3 axis = rotation * glm::normalize(glm::vec3(dy, dx, 0.0f));
+    const glm::quat turn = glm::angleAxis(-angle, axis);
+    // Renormalised every step, so a long session cannot drift into a scale.
+    rotation = glm::normalize(turn * rotation);
+    target = pivot + turn * (target - pivot);
   }
 
   void pan(float dx, float dy)
@@ -86,9 +111,12 @@ struct Camera
   // Frames a sphere. The caller passes the centre and radius rather than a box
   // because Scene has already measured both, and two floors on a degenerate
   // radius would be two chances to disagree about how big an empty scene is.
+  //
+  // The orientation is kept: framing is about what is in view, not from where.
   void fit(const glm::vec3 &center, float radius)
   {
     target = center;
+    pivot = center;
     distance = radius / std::tan(fovy * 0.5f) * 1.6f;
     // Derived from the scene size rather than fixed, so a 100 m domain and a
     // 1 mm one both get usable depth precision instead of z-fighting.
