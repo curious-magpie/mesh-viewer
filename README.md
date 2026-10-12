@@ -42,9 +42,11 @@ Mouse: right-drag turns the scene, as a trackball about the screen's axes throug
 centre (shift-left-drag too, for a trackpad); left- or middle-drag moves it; wheel zooms. With
 the cutting plane on, left-drag its handle to slide it and ctrl-left-drag to rotate it. The
 X/Y/Z triad in the bottom-right corner turns with the view; click an end to look from that
-side (again to turn round). Keys: X, Y, Z look from the + side of an axis (shift for the -
-side), R back to the opening view, O orthographic on and off; every snap eases over 0.2 s. Keys: P plane, W surface mode,
-F frame the scene, Esc quit. Other keys go to the host's panels.
+side (again to turn round).
+
+Keys: P plane, W surface mode, F frame the scene, Q quit; X, Y, Z look from the + side of an
+axis (shift for the - side), R back to the opening view, O orthographic on and off, every
+snap easing over 0.2 s. Other keys go to the host's panels.
 
 ## Writing a host
 

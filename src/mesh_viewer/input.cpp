@@ -167,7 +167,9 @@ void Viewer::on_key(int key, int action, int mods)
 
   switch (key)
   {
-  case GLFW_KEY_ESCAPE:
+  // Q, not Escape: Escape is too easy to reach for to leave a text field or a
+  // menu and lose the window instead.
+  case GLFW_KEY_Q:
     close();
     return;
   case GLFW_KEY_F:
