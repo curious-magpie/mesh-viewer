@@ -33,9 +33,9 @@ subproject, `add_subdirectory(path/to/mesh-viewer)` then link `mesh_viewer::mesh
 The link is public for glad, ImGui, GLFW, GL and glm, because a host's panels are ImGui code
 and its sources hand over glm vectors. The viewer is C++17.
 
-Windows dock in two columns down the sides, a window placed from the left edge in the left one
-and one anchored right in the right, each a section that folds; the scene is drawn only in the
-space between, and a column's inner edge drags to resize it. "docked layout" in the Windows
+Windows dock in two columns down the sides: the viewer's own (Inspect, View) on the left, the
+host's on the right, each a section that folds. The scene is drawn only in the space between,
+and a column's inner edge drags to resize it. "docked layout" in the Windows
 menu turns them back into floating windows over the scene.
 
 Mouse: right-drag turns the scene, as a trackball about the screen's axes through the scene's

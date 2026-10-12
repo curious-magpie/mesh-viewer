@@ -170,6 +170,7 @@ private:
     Panel *panel = nullptr;
     WindowPlacement where;
     bool open = true;
+    bool builtin = false; // Inspect or View: the viewer's own, not the host's
   };
 
   // --- viewer.cpp ---

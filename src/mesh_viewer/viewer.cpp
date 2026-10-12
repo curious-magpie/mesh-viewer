@@ -167,11 +167,13 @@ bool Viewer::init(const Options &options, std::string &err)
   {
     builtin_.push_back(std::make_unique<InspectWindow>());
     add_window("Inspect", *builtin_.back(), InspectWindow::kPlacement);
+    windows_.back().builtin = true;
   }
   if (options.view_window)
   {
     builtin_.push_back(std::make_unique<ViewWindow>());
     add_window("View", *builtin_.back(), ViewWindow::kPlacement);
+    windows_.back().builtin = true;
   }
 
   return renderer_.init(err);
@@ -431,20 +433,17 @@ void Viewer::draw_docked(float top)
   const float height = std::max(display.y - top, 1.0f);
   float used[2] = {0.0f, 0.0f};
 
-  // Left for a window placed from the left edge, right for one anchored to the
-  // right; within a column, top to bottom by where it was placed.
+  // The viewer's own windows on the left, the host's on the right: what
+  // looks at the scene on one side, what acts on the meshes on the other.
+  // Within a column, in the order they were added.
   for (int side = 0; side < 2; ++side)
   {
     std::vector<Window *> column;
     for (Window &w : windows_)
-      if (w.open && (w.where.x < 0.0f) == (side == 1))
+      if (w.open && w.builtin == (side == 0))
         column.push_back(&w);
     if (column.empty())
       continue;
-    std::stable_sort(column.begin(),
-                     column.end(),
-                     [](const Window *a, const Window *b)
-                     { return a->where.y < b->where.y; });
 
     // As wide as the widest placement asked, the first time; after that what
     // the user dragged it to. Never so wide the scene has nowhere to go.

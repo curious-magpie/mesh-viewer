@@ -58,9 +58,10 @@ public:
 // (in imgui.ini). A negative x is measured from the right edge of the screen,
 // so a window can be anchored there. A zero size lets ImGui choose.
 //
-// In the docked layout (the default; ViewSettings::docked) the same numbers
-// say where it docks: x >= 0 in the left column and x < 0 in the right, y the
-// order within the column, and the widest width the column's opening width.
+// In the docked layout (the default; ViewSettings::docked) a host's windows
+// dock in the right column, in the order they were added, and the viewer's
+// own (Inspect, View) in the left; the widest width asked is the column's
+// opening width.
 struct WindowPlacement
 {
   float x = 12.0f, y = 12.0f;
