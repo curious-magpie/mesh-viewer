@@ -30,6 +30,7 @@ option(MESH_VIEWER_BUILD_EXAMPLES "Build the example program"
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(GLFW REQUIRED IMPORTED_TARGET glfw3)
 find_package(OpenGL REQUIRED)
+find_package(PNG REQUIRED)
 
 # glm is header-only; prefer the config package, fall back to the bare header path.
 find_package(glm QUIET)
@@ -70,6 +71,7 @@ endif()
 add_library(mesh_viewer STATIC
     # the window, the frame loop, and the windows the viewer brings itself
     src/mesh_viewer/builtin_windows.cpp
+    src/mesh_viewer/export.cpp
     src/mesh_viewer/input.cpp
     src/mesh_viewer/viewer.cpp
     src/mesh_viewer/widgets.cpp
@@ -91,6 +93,7 @@ target_compile_features(mesh_viewer PUBLIC cxx_std_17)
 target_compile_options(mesh_viewer PRIVATE -Wall -Wextra)
 target_link_libraries(mesh_viewer PUBLIC mesh_viewer_glad mesh_viewer_imgui
                                          PkgConfig::GLFW OpenGL::GL)
+target_link_libraries(mesh_viewer PRIVATE PNG::PNG)
 if(glm_FOUND)
     target_link_libraries(mesh_viewer PUBLIC glm::glm)
 endif()

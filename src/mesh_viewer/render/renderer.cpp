@@ -414,7 +414,8 @@ void Renderer::draw_layer(const Layer &l,
 // and how a fragment is shaded, which follows from the primitive.
 void Renderer::draw_debug_overlay(const Scene &scene,
                                   const CutPlane &plane,
-                                  bool in_front)
+                                  bool in_front,
+                                  float pixel_scale)
 {
   const DebugOverlay &overlay = scene.debug_overlay();
 
@@ -453,7 +454,7 @@ void Renderer::draw_debug_overlay(const Scene &scene,
 
   overlay_.use();
   overlay_.set("uPlane", plane.equation());
-  glPointSize(kPointSize);
+  glPointSize(kPointSize * pixel_scale);
 
   for (const DebugOverlay::Item &item : overlay.items())
   {
@@ -496,7 +497,8 @@ void Renderer::draw(Scene &scene,
                     const Camera &cam,
                     const CutPlane &plane,
                     const glm::vec3 &background,
-                    SurfaceMode mode)
+                    SurfaceMode mode,
+                    float pixel_scale)
 {
   const glm::mat4 view = cam.view();
   const glm::mat4 proj = cam.proj();
@@ -507,6 +509,11 @@ void Renderer::draw(Scene &scene,
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
   if (scene.empty())
     return;
+
+  // Keep edges at the same relative thickness in a high-resolution export.
+  GLfloat widths[2];
+  glGetFloatv(GL_ALIASED_LINE_WIDTH_RANGE, widths);
+  glLineWidth(std::min(pixel_scale, widths[1]));
 
   // Both caches derived from the plane are refreshed here, together: the quads
   // that lie in it, re-uploaded every frame (they are twelve vertices), and
@@ -549,10 +556,11 @@ void Renderer::draw(Scene &scene,
   // which is translucent and has to blend over whatever is behind it; the
   // in-front ones clear the depth buffer, so they go after it, or the gizmo
   // would draw over everything too.
-  draw_debug_overlay(scene, plane, false);
+  draw_debug_overlay(scene, plane, false, pixel_scale);
   if (plane.enabled && plane.show_gizmo)
     draw_gizmo(plane, view);
-  draw_debug_overlay(scene, plane, true);
+  draw_debug_overlay(scene, plane, true, pixel_scale);
+  glLineWidth(1.0f);
 
   // ImGui's backend saves and restores blend, cull and depth, but knows nothing
   // about clip distances or our stencil setup, so hand it a clean slate.

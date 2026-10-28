@@ -23,7 +23,7 @@ What it draws:
 ## Building
 
 ```
-cmake -S . -B build          # GLFW and GLM from the system; glad and ImGui are in ext/
+cmake -S . -B build          # GLFW, GLM and libpng from the system; glad and ImGui are in ext/
 cmake --build build -j
 build/mesh-viewer-demo
 ```
@@ -48,6 +48,12 @@ Keys: P plane, W surface mode, F frame the scene, Q quit; X, Y, Z look from the 
 axis (shift for the - side), R back to the opening view, O orthographic on and off, every
 snap easing over 0.2 s. Letters are the letter printed on the key in the active layout, so Q is
 Q on AZERTY too. Other keys go to the host's panels.
+
+**Images:** View → **Export PNG (4x)** saves `screenshot-001.png`, `screenshot-002.png`,
+etc. in the working directory (the full path is shown after saving). Images have four
+times the scene viewport's width and height, with the same camera, colours, clipping
+and background, and 4-sample antialiasing where supported. Panels, axes and the plane
+handle are omitted. Existing images are not overwritten.
 
 ## Writing a host
 

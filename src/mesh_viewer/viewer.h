@@ -122,6 +122,16 @@ public:
   // Frames the camera on everything in the scene, as it was last synced.
   void frame_all();
 
+  // Saves the next frame's scene at four times its viewport resolution.
+  void export_png()
+  {
+    export_pending_ = true;
+  }
+  const std::string &export_status() const
+  {
+    return export_status_;
+  }
+
   // Turns the view, over a fifth of a second, to look at the scene from the +
   // side of world axis `axis` (0, 1, 2 for X, Y, Z) or the - side, about the
   // scene's centre. Asked for the view it is already in, it turns to the other
@@ -183,6 +193,7 @@ private:
   void turn_to(const glm::quat &to); // starts a snap
   void step_snap();                  // moves one along, once a frame
   void run_deferred();
+  std::string save_png();
   bool animating() const;
 
   // --- input.cpp ---
@@ -210,6 +221,8 @@ private:
   PlaneController plane_drag_;
   Renderer renderer_;
   ViewSettings view_;
+  bool export_pending_ = false;
+  std::string export_status_;
 
   std::vector<Window> windows_;
   std::vector<std::unique_ptr<Panel>> builtin_; // Inspect and View, if asked

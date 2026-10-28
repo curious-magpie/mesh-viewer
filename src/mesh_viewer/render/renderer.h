@@ -61,7 +61,8 @@ public:
             const Camera &cam,
             const CutPlane &plane,
             const glm::vec3 &background,
-            SurfaceMode mode);
+            SurfaceMode mode,
+            float pixel_scale = 1.0f);
 
 private:
   // The passes that make up one layer; see draw_layer.
@@ -84,8 +85,10 @@ private:
 
   // One group of the debug channels: the ordinary ones, or (`in_front`) the
   // ones drawn over everything.
-  void
-  draw_debug_overlay(const Scene &scene, const CutPlane &plane, bool in_front);
+  void draw_debug_overlay(const Scene &scene,
+                          const CutPlane &plane,
+                          bool in_front,
+                          float pixel_scale);
   void draw_gizmo(const CutPlane &plane, const glm::mat4 &view);
 
   // Rebuilds the quads that live in the cutting plane. They move whenever the

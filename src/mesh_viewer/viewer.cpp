@@ -553,6 +553,20 @@ int Viewer::run()
     // The scene into the rectangle the windows left free; ImGui sets its own
     // viewport, the whole window, when it draws on top.
     apply_viewport();
+    if (export_pending_)
+    {
+      export_pending_ = false;
+      try
+      {
+        export_status_ = save_png();
+      }
+      catch (const std::exception &e)
+      {
+        export_status_ = std::string("Export failed: ") + e.what();
+      }
+      std::fprintf(stderr, "%s: %s\n", title_.c_str(), export_status_.c_str());
+      apply_viewport();
+    }
     renderer_.draw(scene_, cam_, plane_, view_.background, view_.surface_mode);
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
