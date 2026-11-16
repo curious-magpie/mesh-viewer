@@ -245,6 +245,11 @@ void ViewWindow::ui(Viewer &viewer)
     viewer.look_default();
   ImGui::Checkbox("orthographic (O)", &viewer.camera().orthographic);
 
+  if (ImGui::Button("Export PNG (4x)"))
+    viewer.export_png();
+  if (!viewer.export_status().empty())
+    ImGui::TextWrapped("%s", viewer.export_status().c_str());
+
   // Coordinates on screen are scene-relative; showing the origin lets you
   // recover the file's own numbers by adding it back.
   const glm::dvec3 o = scene.origin();
